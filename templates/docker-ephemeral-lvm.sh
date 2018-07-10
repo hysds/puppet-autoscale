@@ -174,15 +174,15 @@ if [[ -e "$DOCKER_DEV" ]]; then
   # clean out docker
   rm -rf /var/lib/docker/*
 
-#  # unmount block device if not already
-#  umount $DOCKER_DEV 2>/dev/null || true
-#
-#  # remove volume group
-#  vgremove -ff docker || true
-#
-#  # remove physical volume
-#  pvremove -ff $DOCKER_DEV || true
-#
+  # unmount block device if not already
+  umount $DOCKER_DEV 2>/dev/null || true
+
+  # remove volume group
+  vgremove -ff docker || true
+
+  # remove physical volume
+  pvremove -ff $DOCKER_DEV || true
+
 #  # determine 75% of volume size to be used for docker data
 #  DATA_SIZE=`lsblk -b $DOCKER_DEV | grep disk | awk '{printf "%.0f\n", $4/1024^3*.75}'`
 #
