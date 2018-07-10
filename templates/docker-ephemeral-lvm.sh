@@ -115,13 +115,20 @@ DEV2_SIZE=$(blockdev --getsize64 $DEV2)
 echo "DEV1: $DEV1 $DEV1_SIZE"
 echo "DEV2: $DEV2 $DEV2_SIZE"
 
-# delegate devices for HySDS work dir and docker storage volumes; larger one is for HySDS work dir
-if [ "$DEV1_SIZE" -gt "$DEV2_SIZE" ]; then
-  DATA_DEV=$DEV1
-  DOCKER_DEV=$DEV2
-else
-  DATA_DEV=$DEV2
+# delegate devices for HySDS work dir and docker storage volumes; 
+# if only one ephemeral disk, use for docker; # otherwise larger 
+# one is for HySDS work dir
+if [ "$EPH_BLK_DEVS_CNT" -eq 1 ]; then
   DOCKER_DEV=$DEV1
+  DATA_DEV=$DEV2
+else
+  if [ "$DEV1_SIZE" -gt "$DEV2_SIZE" ]; then
+    DATA_DEV=$DEV1
+    DOCKER_DEV=$DEV2
+  else
+    DATA_DEV=$DEV2
+    DOCKER_DEV=$DEV1
+  fi
 fi
 
 # log devices
@@ -167,52 +174,60 @@ if [[ -e "$DOCKER_DEV" ]]; then
   # clean out docker
   rm -rf /var/lib/docker/*
 
-  # unmount block device if not already
-  umount $DOCKER_DEV 2>/dev/null || true
-
-  # remove volume group
-  vgremove -ff docker || true
-
-  # remove physical volume
-  pvremove -ff $DOCKER_DEV || true
-
-  # determine 75% of volume size to be used for docker data
-  DATA_SIZE=`lsblk -b $DOCKER_DEV | grep disk | awk '{printf "%.0f\n", $4/1024^3*.75}'`
-
-  # create physical volume and volume group for docker
-  pvcreate -ff $DOCKER_DEV
-  vgcreate -ff docker $DOCKER_DEV
-
-  # create logical volumes
-  lvcreate --wipesignatures y -n thinpool docker -l 95%VG
-  lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG
-
-  # convert logical volumes to a thin pool and storage location for metadata
-  lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta
-
-  # configure autoextension of thin pools
-  echo "activation {" > /etc/lvm/profile/docker-thinpool.profile
-  echo "  thin_pool_autoextend_threshold=80" >> /etc/lvm/profile/docker-thinpool.profile
-  echo "  thin_pool_autoextend_percent=20" >> /etc/lvm/profile/docker-thinpool.profile
-  echo "}" >> /etc/lvm/profile/docker-thinpool.profile
-
-  # apply LVM profile
-  lvchange --metadataprofile docker-thinpool docker/thinpool
-
-  # enable monitoring for logical volumes
-  lvs -o+seg_monitor
+#  # unmount block device if not already
+#  umount $DOCKER_DEV 2>/dev/null || true
+#
+#  # remove volume group
+#  vgremove -ff docker || true
+#
+#  # remove physical volume
+#  pvremove -ff $DOCKER_DEV || true
+#
+#  # determine 75% of volume size to be used for docker data
+#  DATA_SIZE=`lsblk -b $DOCKER_DEV | grep disk | awk '{printf "%.0f\n", $4/1024^3*.75}'`
+#
+#  # create physical volume and volume group for docker
+#  pvcreate -ff $DOCKER_DEV
+#  vgcreate -ff docker $DOCKER_DEV
+#
+#  # create logical volumes
+#  lvcreate --wipesignatures y -n thinpool docker -l 95%VG
+#  lvcreate --wipesignatures y -n thinpoolmeta docker -l 1%VG
+#
+#  # convert logical volumes to a thin pool and storage location for metadata
+#  lvconvert -y --zero n -c 512K --thinpool docker/thinpool --poolmetadata docker/thinpoolmeta
+#
+#  # configure autoextension of thin pools
+#  echo "activation {" > /etc/lvm/profile/docker-thinpool.profile
+#  echo "  thin_pool_autoextend_threshold=80" >> /etc/lvm/profile/docker-thinpool.profile
+#  echo "  thin_pool_autoextend_percent=20" >> /etc/lvm/profile/docker-thinpool.profile
+#  echo "}" >> /etc/lvm/profile/docker-thinpool.profile
+#
+#  # apply LVM profile
+#  lvchange --metadataprofile docker-thinpool docker/thinpool
+#
+#  # enable monitoring for logical volumes
+#  lvs -o+seg_monitor
 
   # configure docker daemon for devicemapper
-  echo '{' > /etc/docker/daemon.json
-  echo '  "storage-driver": "devicemapper",' >> /etc/docker/daemon.json
-  echo '  "storage-opts": [' >> /etc/docker/daemon.json
-  echo '    "dm.fs=xfs",' >> /etc/docker/daemon.json
-  echo '    "dm.thinpooldev=/dev/mapper/docker-thinpool",' >> /etc/docker/daemon.json
-  echo '    "dm.use_deferred_removal=true",' >> /etc/docker/daemon.json
-  echo '    "dm.use_deferred_deletion=true",' >> /etc/docker/daemon.json
-  echo '    "dm.basesize=100GB"' >> /etc/docker/daemon.json
-  echo '  ]' >> /etc/docker/daemon.json
-  echo '}' >> /etc/docker/daemon.json
+  cat << EOF > /etc/docker/daemon.json
+{
+  "storage-driver": "devicemapper",
+  "storage-opts": [
+    "dm.directlvm_device=${DOCKER_DEV}",
+    "dm.thinp_percent=95",
+    "dm.thinp_metapercent=1",
+    "dm.thinp_autoextend_threshold=80",
+    "dm.thinp_autoextend_percent=20",
+    "dm.directlvm_device_force=true",
+    "dm.use_deferred_removal=true",
+    "dm.use_deferred_deletion=true",
+    "dm.fs=xfs",
+    "dm.basesize=100G"
+  ]
+}
+EOF
+
 fi
 
 $reset_docker
