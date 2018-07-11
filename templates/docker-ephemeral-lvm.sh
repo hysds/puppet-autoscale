@@ -82,25 +82,46 @@ if [[ ! -e "$DEV1" && ! -e "$DEV2" ]]; then
       fi
     done
 
-    # get other devices
+    # get instance storage devices
     if [ -z ${ROOT_NODE+x} ]; then
-        NVME_EBS_BLK_DEVS=( `nvme list |  grep '^/dev/' | awk '{print $1}' | sort` )
+        NVME_EPH_BLK_DEVS=( `nvme list |  grep '^/dev/' | grep -i 'Instance Storage' | awk '{print $1}' | sort` )
     else
-        NVME_EBS_BLK_DEVS=( `nvme list | grep -v ${ROOT_NODE} | grep '^/dev/' | awk '{print $1}' | sort` )
+        NVME_EPH_BLK_DEVS=( `nvme list | grep -v ${ROOT_NODE} | grep '^/dev/' | grep -i 'Instance Storage' | awk '{print $1}' | sort` )
+    fi
+    NVME_EPH_BLK_DEVS_CNT=${#NVME_EPH_BLK_DEVS[@]}
+    echo "Number of NVMe local storage block devices: $NVME_EPH_BLK_DEVS_CNT"
+
+    # get EBS devices
+    if [ -z ${ROOT_NODE+x} ]; then
+        NVME_EBS_BLK_DEVS=( `nvme list |  grep '^/dev/' | grep 'Elastic Block Store' | awk '{print $1}' | sort` )
+    else
+        NVME_EBS_BLK_DEVS=( `nvme list | grep -v ${ROOT_NODE} | grep '^/dev/' | grep 'Elastic Block Store' | awk '{print $1}' | sort` )
     fi
     NVME_EBS_BLK_DEVS_CNT=${#NVME_EBS_BLK_DEVS[@]}
     echo "Number of NVMe EBS block devices: $NVME_EBS_BLK_DEVS_CNT"
   
     # assign devices
-    if [ "$NVME_EBS_BLK_DEVS_CNT" -ge 2 ]; then
-      DEV1=${NVME_EBS_BLK_DEVS[0]}
-      DEV2=${NVME_EBS_BLK_DEVS[1]}
-    elif [ "$NVME_EBS_BLK_DEVS_CNT" -eq 1 ]; then
-      DEV1=${NVME_EBS_BLK_DEVS[0]}
-      DEV2=/dev/xvdc
+    if [ "$NVME_EPH_BLK_DEVS_CNT" -ge 2 ]; then
+      DEV1=${NVME_EPH_BLK_DEVS[0]}
+      DEV2=${NVME_EPH_BLK_DEVS[1]}
+    elif [ "$NVME_EPH_BLK_DEVS_CNT" -eq 1 ]; then
+      DEV1=${NVME_EPH_BLK_DEVS[0]}
+      if [ "$NVME_EBS_BLK_DEVS_CNT" -ge 1 ]; then
+        DEV2=${NVME_EBS_BLK_DEVS[0]}
+      else
+        DEV2=/dev/xvdc
+      fi
     else
-      DEV1=/dev/xvdb
-      DEV2=/dev/xvdc
+      if [ "$NVME_EBS_BLK_DEVS_CNT" -ge 2 ]; then
+        DEV1=${NVME_EBS_BLK_DEVS[0]}
+        DEV2=${NVME_EBS_BLK_DEVS[1]}
+      elif [ "$NVME_EBS_BLK_DEVS_CNT" -eq 1 ]; then
+        DEV1=${NVME_EBS_BLK_DEVS[0]}
+        DEV2=/dev/xvdc
+      else
+        DEV1=/dev/xvdb
+        DEV2=/dev/xvdc
+      fi
     fi
   else
     DEV1=/dev/xvdb
@@ -118,7 +139,7 @@ echo "DEV2: $DEV2 $DEV2_SIZE"
 # delegate devices for HySDS work dir and docker storage volumes; 
 # if only one ephemeral disk, use for docker; # otherwise larger 
 # one is for HySDS work dir
-if [ "$EPH_BLK_DEVS_CNT" -eq 1 ]; then
+if [[ "$EPH_BLK_DEVS_CNT" -eq 1 || "$NVME_EPH_BLK_DEVS_CNT" -eq 1 ]]; then
   DOCKER_DEV=$DEV1
   DATA_DEV=$DEV2
 else
