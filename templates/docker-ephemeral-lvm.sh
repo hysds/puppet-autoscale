@@ -109,7 +109,11 @@ if [[ ! -e "$DEV1" && ! -e "$DEV2" ]]; then
       if [ "$NVME_EBS_BLK_DEVS_CNT" -ge 1 ]; then
         DEV2=${NVME_EBS_BLK_DEVS[0]}
       else
-        DEV2=/dev/xvdc
+        if [ "$EBS_BLK_DEVS_CNT" -ge 1 ]; then
+          DEV2=/dev/$(curl -s http://169.254.169.254/latest/meta-data/block-device-mapping/${EBS_BLK_DEVS[0]} | sed 's/^sd/xvd/')
+        else
+          DEV2=/dev/xvdb
+        fi
       fi
     else
       if [ "$NVME_EBS_BLK_DEVS_CNT" -ge 2 ]; then
@@ -117,7 +121,11 @@ if [[ ! -e "$DEV1" && ! -e "$DEV2" ]]; then
         DEV2=${NVME_EBS_BLK_DEVS[1]}
       elif [ "$NVME_EBS_BLK_DEVS_CNT" -eq 1 ]; then
         DEV1=${NVME_EBS_BLK_DEVS[0]}
-        DEV2=/dev/xvdc
+        if [ "$EBS_BLK_DEVS_CNT" -ge 1 ]; then
+          DEV2=/dev/$(curl -s http://169.254.169.254/latest/meta-data/block-device-mapping/${EBS_BLK_DEVS[0]} | sed 's/^sd/xvd/')
+        else
+          DEV2=/dev/xvdb
+        fi
       else
         DEV1=/dev/xvdb
         DEV2=/dev/xvdc
