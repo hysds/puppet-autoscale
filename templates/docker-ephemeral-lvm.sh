@@ -259,5 +259,5 @@ EOF
 
 fi
 
-$reset_docker
+$reset_docker || "No need to reset. Moving on"
 $start_docker
