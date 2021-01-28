@@ -3,7 +3,7 @@ Description=HySDS service for worker instance seppuku
 After=provision-verdi.service
 
 [Service]
-ExecStart=/bin/bash -c "<%= @verdi_dir %>/bin/python <%= @verdi_dir %>/ops/hysds/scripts/harikiri.py -l $(/bin/grep ^MOZART_REST_URL <%= @verdi_dir %>/ops/hysds/celeryconfig.py | /bin/awk 'BEGIN{FS=\"\\\"\"}{print $2}') <%= @work_dir %>"
+ExecStart=/bin/bash -c "<%= @verdi_dir %>/bin/python <%= @verdi_dir %>/bin/harikiri.py -l $(/bin/grep ^MOZART_REST_URL <%= @verdi_dir %>/ops/hysds/celeryconfig.py | /bin/awk 'BEGIN{FS=\"\\\"\"}{print $2}') <%= @work_dir %>"
 KillMode=process
 Restart=on-failure
 User=ops
