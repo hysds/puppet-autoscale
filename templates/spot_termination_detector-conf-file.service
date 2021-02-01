@@ -1,0 +1,13 @@
+[Unit]
+Description=HySDS spot instance termination detector
+After=provision-verdi.service
+
+[Service]
+ExecStart=/bin/bash -c "<%= @verdi_dir %>/bin/python <%= @verdi_dir %>/bin/spot_termination_detector.py -f <%= @verdi_dir %>/etc/spot_termination_detector.yml"
+KillMode=process
+Restart=on-failure
+User=ops
+Group=ops
+
+[Install]
+WantedBy=multi-user.target

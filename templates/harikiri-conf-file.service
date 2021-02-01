@@ -1,0 +1,13 @@
+[Unit]
+Description=HySDS service for worker instance seppuku
+After=provision-verdi.service
+
+[Service]
+ExecStart=/bin/bash -c "<%= @verdi_dir %>/bin/python <%= @verdi_dir %>/bin/harikiri.py -f <%= @verdi_dir %>/etc/harikiri.yml"
+KillMode=process
+Restart=on-failure
+User=ops
+Group=ops
+
+[Install]
+WantedBy=multi-user.target
