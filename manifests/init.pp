@@ -100,19 +100,11 @@ class autoscale inherits verdi {
   }
 
 
-  file { '/etc/systemd/system/harikiri.d/harikiri.py':
-    ensure  => present,
-    mode    => 0755,
-    content => template('autoscale/harikiri.py'),
-    require => File['/etc/systemd/system/harikiri.d'],
-  }
-
-
   file { '/etc/systemd/system/harikiri.service':
     ensure  => present,
     mode    => 0644,
     content => template('autoscale/harikiri.service'),
-    require => File['/etc/systemd/system/harikiri.d/harikiri.py'],
+    require => File['/etc/systemd/system/harikiri.d'],
     notify  => Exec['daemon-reload'],
   }
 
@@ -148,19 +140,11 @@ class autoscale inherits verdi {
   }
 
 
-  file { '/etc/systemd/system/spot_termination_detector.d/spot_termination_detector.py':
-    ensure  => present,
-    mode    => 0755,
-    content => template('autoscale/spot_termination_detector.py'),
-    require => File['/etc/systemd/system/spot_termination_detector.d'],
-  }
-
-
   file { '/etc/systemd/system/spot_termination_detector.service':
     ensure  => present,
     mode    => 0644,
     content => template('autoscale/spot_termination_detector.service'),
-    require => File['/etc/systemd/system/spot_termination_detector.d/spot_termination_detector.py'],
+    require => File['/etc/systemd/system/spot_termination_detector.d'],
     notify  => Exec['daemon-reload'],
   }
 
