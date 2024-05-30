@@ -11,6 +11,9 @@ export PYTHONPATH=${HYSDS_HOME}/verdi/etc:${PYTHONPATH}
 
 container_engine=$(python -c "from hysds.celery import app; import json; print(app.conf.get('CONTAINER_ENGINE'))")
 
+# temporary print statement to make sure custom verdi AMI is using this script
+echo "Using HC-522 version of the start-verdi.sh"
+
 cd ${HYSDS_HOME}/verdi/ops/hysds-dockerfiles/verdi
 if [[ "${container_engine}" == "docker" ]]; then
   /usr/local/bin/docker-compose up -d
